@@ -1,0 +1,12 @@
+# Synthetic, author-written labeled corpus for detector.py.
+# Reproduces the precision/recall methodology of the paper's section 10 using
+# fixtures that contain NO third-party source and NO exploit payloads.
+# label<TAB>path  (1 = unguarded method-call dispatch; 0 = guard-complete / non-interpreter)
+1	corpus_synthetic/vuln_minimal.py
+1	corpus_synthetic/vuln_aliased.py
+1	corpus_synthetic/vuln_independent.py
+0	corpus_synthetic/clean_safe_wrapper.py
+0	corpus_synthetic/clean_recursive.py
+0	corpus_synthetic/clean_read_only.py
+0	corpus_synthetic/noninterp_helper.py
+0	corpus_synthetic/noninterp_config.py
