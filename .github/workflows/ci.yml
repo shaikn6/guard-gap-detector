@@ -5,13 +5,21 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   detector:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.11", "3.13"]
+        python-version: ["3.11", "3.13"]
+        os: [ubuntu-latest]
+        include:
+          # ubuntu-latest (26.04) ships no Python 3.8 build; README promises 3.8+.
+          - python-version: "3.8"
+            os: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
