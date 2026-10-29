@@ -1,8 +1,18 @@
 # guard-gap-detector
 
-A small, read-only static detector for a **dispatch asymmetry** in AST-walking
-restricted Python interpreters: the kind of in-process "sandbox" that some
-AI-agent frameworks use to run model-written code without a container or VM.
+[![CI](https://github.com/shaikn6/guard-gap-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/guard-gap-detector/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](.github/workflows/ci.yml)
+
+**A small, read-only static detector for a dispatch asymmetry in AST-walking
+restricted Python interpreters: attribute reads go through a dunder guard, but
+the callable for a method call is fetched with a raw `getattr` that skips it.**
+
+These interpreters are the kind of in-process "sandbox" that some AI-agent
+frameworks use to run model-written code without a container or VM. On the
+shipped synthetic corpus the detector separates all 3 vulnerable fixtures from
+all 5 clean ones (precision, recall and F1 1.00; see
+[Reproduce the evaluation](#reproduce-the-evaluation)). Standard library only.
 
 In a vulnerable interpreter, a bare attribute _read_ (`obj.attr`) is routed
 through a guard that rejects dunder names (`__globals__`, `__dict__`, …), but the
@@ -21,21 +31,14 @@ It is **not** an exploit, a general sandbox-robustness prover, or a
 guard-completeness oracle. It parses source with Python's `ast` module and never
 imports or executes the file under test. It emits no payloads.
 
-## Install
+## Quickstart
 
 No dependencies beyond the Python standard library (Python 3.8+).
 
 ```bash
 git clone https://github.com/shaikn6/guard-gap-detector
 cd guard-gap-detector
-```
-
-## Use
-
-Scan one or more files:
-
-```bash
-python3 -I detector.py path/to/interpreter.py
+python3 -I detector.py path/to/interpreter.py          # scan one or more files
 python3 -I detector.py --json path/to/interpreter.py
 ```
 
