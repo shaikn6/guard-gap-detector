@@ -1,5 +1,7 @@
 # guard-gap-detector
 
+> **Finds the sandbox escape hiding in the AST-walking Python interpreters that AI-agent frameworks trust to run untrusted code.**
+
 [![CI](https://github.com/shaikn6/guard-gap-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/guard-gap-detector/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](.github/workflows/ci.yml)
