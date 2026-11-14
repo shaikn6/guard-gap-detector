@@ -105,3 +105,6 @@ project and ships no third-party source or exploit code.**
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+<sub>Part of [Nagizaaz Shaik's open-source work](https://github.com/shaikn6) · [all repositories](https://github.com/shaikn6?tab=repositories)</sub>
