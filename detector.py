@@ -127,12 +127,13 @@ def analyze_source(src: str, path: str = "<string>") -> Finding:
                 dispatch_src=dispatch_src,
             )
 
-    # If every getattr-to-call used a guarded wrapper or a recursive evaluator,
-    # the interpreter is guard-complete for this path.
+    # No unguarded getattr-then-call dispatch was found: either every such
+    # dispatch used a guarded wrapper or recursive evaluator, or the file has no
+    # method-call dispatch at all.
     return Finding(
-        tree and path,
+        path,
         False,
-        "dispatch routed through a guard/recursive evaluator "
+        "no unguarded method-call dispatch found "
         f"(guarded names seen: "
         f"{sorted(GUARDED_GETATTR_NAMES & invoked) or 'none'}; "
         f"recursive eval seen: {sorted(RECURSIVE_EVAL_NAMES & invoked) or 'none'})",
