@@ -212,9 +212,10 @@ def test_limit_missed_when_getattr_wrapped_in_helper():
     assert detector.analyze_source(src, "inline").vulnerable is False
 
 
-def test_limit_overflags_when_no_read_guard_exists():
-    # The detector never inspects the read path, so it flags even an
-    # interpreter whose attribute read has no dunder guard at all.
+def test_limit_flags_call_path_shape_without_read_guard():
+    # The detector never inspects the read path, so it reports the unguarded
+    # call-path shape even when reads have no guard. Not a false positive: the
+    # call path really is unguarded; the read/call asymmetry is just absent.
     src = (
         "import ast\n"
         "def ev(node, env):\n"
@@ -224,6 +225,22 @@ def test_limit_overflags_when_no_read_guard_exists():
         "        f = getattr(ev(node.func.value, env), node.func.attr)\n"
         "        return f(*[ev(a, env) for a in node.args])\n"
         "    raise ValueError('x')\n"
+    )
+    assert detector.analyze_source(src, "inline").vulnerable is True
+
+
+def test_limit_overflags_on_scope_blind_name_match():
+    # Name matching is file-wide, not scope-aware: a pure read `x = getattr(...)`
+    # in one function plus an unrelated `x()` in another is flagged.
+    src = (
+        "import ast\n"
+        "def reader(node, env):\n"
+        "    if isinstance(node, ast.Attribute):\n"
+        "        x = getattr(env, node.attr)\n"
+        "        return x\n"
+        "def other(factory):\n"
+        "    x = factory\n"
+        "    return x()\n"
     )
     assert detector.analyze_source(src, "inline").vulnerable is True
 

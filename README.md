@@ -46,8 +46,8 @@ No dependencies beyond the Python standard library (Python 3.8+).
 ```bash
 git clone https://github.com/shaikn6/guard-gap-detector
 cd guard-gap-detector
-python3 -I detector.py path/to/interpreter.py          # scan one or more files
-python3 -I detector.py --json path/to/interpreter.py
+python3 -I detector.py corpus_synthetic/vuln_minimal.py   # scan one or more files
+python3 -I detector.py --json corpus_synthetic/vuln_minimal.py
 ```
 
 `-I` runs Python in isolated mode (no implicit `sys.path` entries), which is the
@@ -97,12 +97,19 @@ that wraps the fetch in a helper function, that passes a third `default`
 argument to `getattr`, that aliases or otherwise obtains `getattr` indirectly,
 or that uses a non-`ast` parser.
 
-**Over-flagging (false positives).** Because it never inspects the read path, it
-flags any interpreter with the fetch-then-call shape even when there is no
-dunder guard on reads at all, or when the call path carries its own inline
-(non-wrapper) dunder check. It says nothing about whether a flagged interpreter
-is actually reachable by attacker-controlled input in a given deployment. Treat
-a hit as a prompt to read the dispatch path by hand, not as a verdict.
+**Scope and read-path blindness.** The `name = getattr(...)` / `name(...)` match
+is file-wide, not scope-aware, so it over-flags when one function reads
+`x = getattr(o, n)` and an unrelated function calls a different `x()`. Because it
+never inspects the read path, it also flags an interpreter whose call path
+carries its own inline (non-wrapper) dunder check, and it reports the unguarded
+call-path shape even when reads have no dunder guard at all (there the shape is
+real; the read/call *asymmetry* the tool is named for simply isn't present).
+
+It says nothing about whether a flagged interpreter is actually reachable by
+attacker-controlled input in a given deployment. A file it cannot read or parse
+is printed as `clean` with exit 0 by the CLI (the `evaluate_detector` harness,
+by contrast, fails loudly on such a row). Treat a hit as a prompt to read the
+dispatch path by hand, not as a verdict.
 
 ## Proposed fix (for a flagged interpreter)
 
