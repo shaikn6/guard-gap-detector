@@ -4,11 +4,13 @@ guard_gap_detector.py  --  static detector for the method-call dispatch
 asymmetry described in "When Vendoring Defeats the Patch" (Shaik, 2026).
 
 It flags a Python source file that implements an AST-walking restricted
-interpreter in which the *method-call* dispatch path fetches the callable
-through the built-in ``getattr(obj, name)`` (two positional arguments) while
-the *attribute-read* path is routed through a dunder-blocking guard. That
-asymmetry is the root cause of the sandbox-guard bypass measured in the paper
-and of its vendored copies.
+interpreter in which the *method-call* dispatch path assigns the callable from
+the built-in ``getattr(obj, name)`` (two positional arguments) and then invokes
+it. That unguarded call path is the root cause of the sandbox-guard bypass
+measured in the paper and of its vendored copies. The detector keys on that
+call-path shape alone; it does not inspect or verify the attribute-read path,
+and its name matching is file-wide rather than scope-aware (see the limitations
+in the README).
 
 The detector is read-only static analysis. It parses source with ``ast`` (it
 never imports or executes the target) and reports a boolean plus the line of
@@ -127,12 +129,13 @@ def analyze_source(src: str, path: str = "<string>") -> Finding:
                 dispatch_src=dispatch_src,
             )
 
-    # If every getattr-to-call used a guarded wrapper or a recursive evaluator,
-    # the interpreter is guard-complete for this path.
+    # No unguarded getattr-then-call dispatch was found: either every such
+    # dispatch used a guarded wrapper or recursive evaluator, or the file has no
+    # method-call dispatch at all.
     return Finding(
-        tree and path,
+        path,
         False,
-        "dispatch routed through a guard/recursive evaluator "
+        "no unguarded method-call dispatch found "
         f"(guarded names seen: "
         f"{sorted(GUARDED_GETATTR_NAMES & invoked) or 'none'}; "
         f"recursive eval seen: {sorted(RECURSIVE_EVAL_NAMES & invoked) or 'none'})",

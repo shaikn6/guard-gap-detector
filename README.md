@@ -10,6 +10,11 @@
 restricted Python interpreters: attribute reads go through a dunder guard, but
 the callable for a method call is fetched with a raw `getattr` that skips it.**
 
+Where this owner's [`llm-safety-auditor`](https://github.com/shaikn6/llm-safety-auditor)
+red-teams a model at runtime, guard-gap-detector stays entirely static: it reads
+one narrow structural pattern out of source with the standard library and runs
+nothing.
+
 These interpreters are the kind of in-process "sandbox" that some AI-agent
 frameworks use to run model-written code without a container or VM. On the
 shipped synthetic corpus the detector separates all 3 vulnerable fixtures from
@@ -26,12 +31,13 @@ actually covers.
 
 This tool answers one narrow, auditable question:
 
-> Is the callable for a method dispatch fetched through an **unguarded built-in
-> `getattr`**, while attribute reads are guarded?
+> Is the callable for a method dispatch assigned from an **unguarded built-in
+> `getattr(obj, name)`** and then invoked as a callable?
 
-It is **not** an exploit, a general sandbox-robustness prover, or a
-guard-completeness oracle. It parses source with Python's `ast` module and never
-imports or executes the file under test. It emits no payloads.
+It keys on that call-path shape alone; it does **not** inspect or verify the
+attribute-read path, so it is **not** an exploit, a general sandbox-robustness
+prover, or a guard-completeness oracle. It parses source with Python's `ast`
+module and never imports or executes the file under test. It emits no payloads.
 
 ## Quickstart
 
@@ -40,8 +46,8 @@ No dependencies beyond the Python standard library (Python 3.8+).
 ```bash
 git clone https://github.com/shaikn6/guard-gap-detector
 cd guard-gap-detector
-python3 -I detector.py path/to/interpreter.py          # scan one or more files
-python3 -I detector.py --json path/to/interpreter.py
+python3 -I detector.py corpus_synthetic/vuln_minimal.py   # scan one or more files
+python3 -I detector.py --json corpus_synthetic/vuln_minimal.py
 ```
 
 `-I` runs Python in isolated mode (no implicit `sys.path` entries), which is the
@@ -67,25 +73,43 @@ python3 -I evaluate_detector.py corpus_synthetic/manifest_synthetic.tsv
 ```
 
 Expected result: **precision 1.00, recall 1.00, F1 1.00** (3 true positives,
-5 true negatives). The harness also runs against any other
-`<label>\t<path>` manifest you supply.
+5 true negatives) — reproduced 2026-11-15 on CPython 3.13, and pinned by the
+test suite on 3.8/3.11/3.13 in CI. These numbers are a **regression pin on
+eight author-written fixtures**, not an accuracy estimate against real
+interpreters in the wild. The harness also runs against any other
+`<label>\t<path>` manifest you supply, and exits non-zero if a manifest row
+points at a file it cannot read or parse.
 
 ## What the detector does and does not catch
 
 It flags an interpreter when both hold: (i) the file branches on
 `ast.Attribute` (the gate that keeps it from flagging ordinary
 `f = getattr(o, n); f()` helper code), and (ii) it assigns
-`name = getattr(obj, attr)` with the two-argument built-in `getattr` and then
-invokes `name` as a callable. A dispatch routed through a guarded wrapper
-(`safe_getattr`, `guarded_getattr`, …) or through a recursive evaluator is, by
-construction, not flagged.
+`name = getattr(obj, attr)` to a plain name with the two-argument built-in
+`getattr` and then invokes `name` as a callable. A dispatch routed through a
+guarded wrapper (`safe_getattr`, `guarded_getattr`, …) or through a recursive
+evaluator is, by construction, not flagged.
 
-It will miss a copy that fetches the callable through an aliased or indirect
-`getattr`, that uses a non-`ast` parser, or that reaches the same
-native-resolution surface through a built-in other than `str.format`. It says
-nothing about whether a flagged interpreter is actually reachable by
-attacker-controlled input in a given deployment. Treat a hit as a prompt to read
-the dispatch path by hand, not as a verdict.
+**Misses (false negatives).** It will miss a copy that invokes the callable
+without a plain-name assignment (`getattr(o, n)(...)`), that assigns to an
+attribute or subscript target or with an annotation (`self.f = …`, `f: C = …`),
+that wraps the fetch in a helper function, that passes a third `default`
+argument to `getattr`, that aliases or otherwise obtains `getattr` indirectly,
+or that uses a non-`ast` parser.
+
+**Scope and read-path blindness.** The `name = getattr(...)` / `name(...)` match
+is file-wide, not scope-aware, so it over-flags when one function reads
+`x = getattr(o, n)` and an unrelated function calls a different `x()`. Because it
+never inspects the read path, it also flags an interpreter whose call path
+carries its own inline (non-wrapper) dunder check, and it reports the unguarded
+call-path shape even when reads have no dunder guard at all (there the shape is
+real; the read/call *asymmetry* the tool is named for simply isn't present).
+
+It says nothing about whether a flagged interpreter is actually reachable by
+attacker-controlled input in a given deployment. A file it cannot read or parse
+is printed as `clean` with exit 0 by the CLI (the `evaluate_detector` harness,
+by contrast, fails loudly on such a row). Treat a hit as a prompt to read the
+dispatch path by hand, not as a verdict.
 
 ## Proposed fix (for a flagged interpreter)
 

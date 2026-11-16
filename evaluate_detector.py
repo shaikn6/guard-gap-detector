@@ -30,6 +30,7 @@ import detector
 def main(path: str) -> int:
     tp = fp = tn = fn = 0
     rows = []
+    unreadable = []
     with open(path, encoding="utf-8") as fh:
         for raw in fh:
             line = raw.rstrip("\n")
@@ -37,7 +38,14 @@ def main(path: str) -> int:
                 continue
             label_s, _, fpath = line.partition("\t")
             label = int(label_s)
-            pred = detector.analyze_file(fpath).vulnerable
+            finding = detector.analyze_file(fpath)
+            # A file that cannot be read or parsed is not a prediction of
+            # "clean"; it means the corpus is misconfigured. Fail loudly instead
+            # of silently scoring it as a negative.
+            if finding.reason.startswith(("unreadable:", "unparseable:")):
+                unreadable.append((fpath, finding.reason))
+                continue
+            pred = finding.vulnerable
             if label == 1 and pred:
                 tp += 1
                 cell = "TP"
@@ -51,6 +59,16 @@ def main(path: str) -> int:
                 tn += 1
                 cell = "TN"
             rows.append((cell, label, int(pred), fpath))
+
+    if unreadable:
+        print("ERROR: manifest lists files the detector could not read:", file=sys.stderr)
+        for fpath, reason in unreadable:
+            print(f"  {fpath}  -- {reason}", file=sys.stderr)
+        print(
+            "Run from the repository root so manifest paths resolve.",
+            file=sys.stderr,
+        )
+        return 2
 
     precision = tp / (tp + fp) if (tp + fp) else float("nan")
     recall = tp / (tp + fn) if (tp + fn) else float("nan")
