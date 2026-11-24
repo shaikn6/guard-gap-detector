@@ -1,0 +1,3 @@
+[lint]
+# Core pyflakes and pycodestyle error rules: real bugs, no restyling.
+select = ["E4", "E7", "E9", "F"]

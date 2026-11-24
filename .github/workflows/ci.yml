@@ -32,3 +32,10 @@ jobs:
         run: python -I -m pytest -q
       - name: Reproduce the synthetic-corpus confusion matrix
         run: python -I evaluate_detector.py corpus_synthetic/manifest_synthetic.tsv
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: pipx run ruff==0.17.6 check .
